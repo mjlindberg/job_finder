@@ -364,7 +364,7 @@ def gensim_similarities_with_terms(jobs):
             continue
     return(list(set(jobs_to_drop)))
 
-from gensim.similarities.annoy import AnnoyIndexer
+from gensim.similarities.annoy import AnnoyIndexer # not appropriate for dupe fitlering!!
 def gensim_similarities_with_annoy(jobs):
     documents = [job.description for job in jobs]
     stoplist = set('for a of the and to in'.split())
@@ -397,7 +397,7 @@ def gensim_similarities_with_annoy(jobs):
     corpus = [dictionary.doc2bow(text) for text in texts]
     #lsi = models.LsiModel(corpus, id2word=dictionary)#, num_topics=200)
     similarity_matrix = similarities.SparseTermSimilarityMatrix(termsim_index, dictionary)  # transform corpus to LSI space and index it
-    index = SoftCosineSimilarity(corpus, similarity_matrix, num_best=10) #gives the most similar texts: 
+    index = SoftCosineSimilarity(corpus, similarity_matrix)#, num_best=10) #gives the most similar texts: 
     #https://github.com/RaRe-Technologies/gensim/blob/develop/docs/notebooks/soft_cosine_tutorial.ipynb
     jobs_to_drop = []
     for ind,job in tqdm(enumerate(jobs), desc = "Finding max similarities..."):
@@ -409,6 +409,7 @@ def gensim_similarities_with_annoy(jobs):
         # results
         sims = index[vec_bow]  # perform a similarity query against the corpus
         sims = list(enumerate(sims))
+        print(ind,job.title);return sims
         max_sim = max(sims, key = lambda x:x[1])
         if job.id == jobs[max_sim[0]].id:
             sims = list(filter(lambda x: x != max_sim, sims))

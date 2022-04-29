@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup as bs
 import re
 
+import sys
+sys.path.insert(1, "/home/marcus/Documents/VM_shared/marcus-lindberg/custom_tools/job_finder/required")
 from WebScraper import initiate_driver
 #########
 ## Split this off into web scraper above
@@ -33,6 +35,7 @@ from collections import ChainMap, Counter
 from wordcloud import WordCloud, STOPWORDS
 import csv, json
 #######################
+sys.path.insert(1, "/home/marcus/Documents/VM_shared/marcus-lindberg/custom_tools/job_finder/scripts")
 from score_description import score_complete
 ###########################
 ## TODO: add a collection class to store all job objects inside (and a universal webdriver)
@@ -43,7 +46,8 @@ from score_description import score_complete
 ## TODO: progress bar w/ tqdm
 
 ######################
-
+## TODO: decouple webdriver from these classes. separate scraping class
+## TODO: split each class into separate file.
 
 ######################
     
@@ -122,8 +126,9 @@ class JobPosting(JobPostingFramework):
     driver = None
     lang_detector = None
 
-    def __init__(self, title, url, **args):
-        if JobPosting.driver is None:
+    def __init__(self, title, url, **kwargs):
+
+        if not JobPosting.driver and not kwargs:
             super().__init__() #is this what's needed to init superclass?
             JobPosting.driver = self.driver
             JobPosting.lang_detector = self.lang_detector
@@ -131,22 +136,29 @@ class JobPosting(JobPostingFramework):
         self.title = title
         self.url = url
         
-        self.description = None
-        self.language = None
-        self.company = None
-        self.apply_url = None
+        # self.description = None
+        # self.language = None
+        # self.company = None
+        # self.apply_url = None
+        #try to accomodate creation from dicts:
+        self.description = kwargs.get('description')
+        self.language = kwargs.get('language')
+        self.company = kwargs.get('company')
+        self.apply_url = kwargs.get('apply_url')
+
         self.vocab = None # tokens/lemmas/etc. w/ stopwords removed
         self.most_similar = None #id of other job posting
         self.requirements = []
         self.site = None
-        self.score = 0
+        self.score = kwargs.get('score', 0)
         
         #JobPosting.length += 1
         JobPostingFramework.length += 1
-        self.id = JobPostingFramework.length
+        self.id = kwargs.get('id', JobPostingFramework.length)
         self.unique_id = None #unique hash of e.g. url; url.__hash__(); use md5?
-        self.init_description()
-        self.check_language()
+        if not self.description:
+            self.init_description()
+            self.check_language()
 
     def __iter__(self):
         yield 'title', self.title
@@ -157,6 +169,19 @@ class JobPosting(JobPostingFramework):
         yield 'score', self.score
 
     #def __dict__(self):
+
+    @classmethod
+    def from_json(cls, json_dict):
+        if isinstance(json_dict, dict):
+            return cls(
+                title = json_dict['title'],
+                url = json_dict['url'],
+                id = json_dict['id'],
+                description = json_dict['description'],
+                language = json_dict['language'],
+                score = json_dict['score'],
+                #driver = 'n/a'
+                )
 
     @staticmethod
     def get_description_linkedin(url, driver):
@@ -304,9 +329,23 @@ class JobPostingCollection(JobPostingFramework):
 
     def __iter__(self):
         yield f"{self.query_date}", {job[0]:dict(job[1]) for job in self.get_jobs()}
+        
+    def __eq__(self, other):
+        return dict(self) == dict(other)
+        # self_date = self.query_date if type(self.query_date) == str else self.query_date.strftime("%Y-%m-%d")
+        # other_date = other.query_date if type(other.query_date) == str else other.query_date.strftime("%Y-%m-%d")
+        # job_id = self.get_job_ids()[0]
+        # return self.length==other.length and self_date == other_date and self.get_job(job_id)['url'] == other.get_job(job_id)['url']
 
     def to_json(self):
         return json.dumps(dict(self), indent = 4)
+
+    def from_json(self, json_dict): #inconsistent behavior compared to JobPosting class
+        self.query_date = list(json_dict.keys())[0] #test w/ single date
+        job_postings = [JobPosting.from_json(
+            json_dict[self.query_date][job]
+            ) for job in json_dict[self.query_date]]
+        self.add_jobs(job_postings)
 
     def save_json(self, path = "./"):#, filename = f"{self.query_date}_jobs"): #add keywords
         outpath = path+str(self.query_date)+'_jobs.json'

@@ -56,13 +56,20 @@ def report_progress(*args):
         return(list(out))
     
 
+def kill_existing_chromium_processes():
+    import subprocess
+    ps1 = subprocess.run(['ps','aux'], universal_newlines=True, stdout=subprocess.PIPE)
+    ps2 = subprocess.run(["awk","/chrome/ { print $2 }"], universal_newlines=True, input=ps1.stdout, stdout=subprocess.PIPE)
+    print("Chromium processes to be killed:", ps2.stdout)
+    ps_kill = subprocess.run(["xargs","kill","-9"], universal_newlines=True, input=ps2.stdout)
 
 ######################
 
 def get_urls_linkedin_selenium(keywords = "biology",
                       location_string = "Basel%2C%2BBasel%2C%2BSwitzerland",
                       geo_id = "103383283",
-                      wait = 20):
+                      wait = 20,
+                      debug = False):
     #encode/decode location w: from urllib.parse import unquote
     print(f"Finding {keywords} jobs in {location_string.split('%2C%2B')}:")
     query_url = f"https://ch.linkedin.com/jobs/search?keywords={keywords}&location={location_string}&geoId={geo_id}"
@@ -73,7 +80,8 @@ def get_urls_linkedin_selenium(keywords = "biology",
     driver.get(query_url)
    #########
    ### recently added: scrolling # but how to add to requests...???
-    JobPostingFramework.scroll_page(driver, scroll_wait=5)
+    if not debug:
+        JobPostingFramework.scroll_page(driver, scroll_wait=5)
     urls_list = driver.find_elements_by_class_name("base-card__full-link")#("result-card__full-card-link")
 
     get_clean_url = lambda x: re.match(pattern="(.*)\?refId(.*)", string=x).groups()[0] #moved URL cleaning step here
@@ -83,11 +91,11 @@ def get_urls_linkedin_selenium(keywords = "biology",
     return urls_list_final#urls_list
 
 def get_listings_selenium(listing_urls):
-    jobs = [JobPosting(title=job[0], url = job[1]) for job in tqdm(listing_urls,  bar_format = "{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} [Duration: {elapsed} | Time remaining: {remaining}")] #other option; use tqdm in the fxn with retries?
+    jobs = [JobPosting(title=job[0].strip(), url = job[1]) for job in tqdm(listing_urls,  bar_format = "{desc}: {percentage:.1f}%|{bar}| {n_fmt}/{total_fmt} [Duration: {elapsed} | Time remaining: {remaining}")] #other option; use tqdm in the fxn with retries?
     return jobs
 ####################
 
-def run_job_scraper(previous_jobs = [None], **kwargs):
+def run_job_scraper(previous_jobs = [None], n_jobs = None, **kwargs):
 
     """
     previous_jobs = list of job urls in the past? or a hash? the objects themselves might be too much (try w/ list of job urls)
@@ -95,7 +103,7 @@ def run_job_scraper(previous_jobs = [None], **kwargs):
 
     try:
         print("Starting job search...")
-        jobs_list = get_urls_linkedin_selenium(**kwargs)
+        jobs_list = get_urls_linkedin_selenium(**kwargs)[slice(n_jobs)]
         print(len(jobs_list), "jobs found.") #Why do we only get 175 out of the 271 jobs? #because there was still more and the button wasnt pressed (German text but expected English)
         #with open("jobs_list_log.txt", 'w') as f:
         #    [f.write(job[0].strip() + ";" + job[1].strip() + "\n") for job in jobs_list]
@@ -139,13 +147,22 @@ def run_job_scraper(previous_jobs = [None], **kwargs):
 #nltk.FreqDist(([w for w in words if w.lower() not in stopwords and w.isalpha()])).tabulate(10)
 
 ################ RUN ################
-query_jobs = run_job_scraper()
+kill_existing_chromium_processes()
 
-# import pickle
-# with open('jobs.pkl', 'wb') as f:
-#     pickle.dump(query_jobs, f)
-#     #TypeError: self.c cannot be converted to a Python object for picklings
+# query_jobs = run_job_scraper()
 
-query_collection = JobPostingCollection()
-query_collection.add_jobs(query_jobs)
-query_collection.save_json()
+# # import pickle
+# # with open('jobs.pkl', 'wb') as f:
+# #     pickle.dump(query_jobs, f)
+# #     #TypeError: self.c cannot be converted to a Python object for picklings
+
+# query_collection = JobPostingCollection()
+# query_collection.add_jobs(query_jobs)
+# query_collection.save_json()
+
+# import json
+# jobs_json = json.load(open("2022-04-29_jobs.json", "r"))
+# jpc = JobPostingCollection()
+# jpc.from_json(jobs_json)
+
+# assert query_collection == jpc

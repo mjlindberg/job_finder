@@ -10,6 +10,10 @@
 # dash & plotly dashboard of jobs from scraping
 
 import dash
+
+import dash_table
+import pandas as pd
+
 import dash_core_components as dcc
 import dash_html_components as html
 
@@ -28,7 +32,7 @@ from flask_caching import Cache
 #import functools32
 from tqdm.auto import tqdm
 ##############
-
+import sys; sys.path.insert(1, "classes")
 from JobPosting_classes import JobPostingCollection
 
 ##########
@@ -39,16 +43,41 @@ import pickle, csv, json
 filtered = True
 
 #######################
+#### UPLOAD DATA ######
+###### upload own data
 
-if filtered is True:
-    json_filepath = "all_jobs_filtered.json"
-else:
-    json_filepath = "all_jobs.json"
-#read data
-with open(json_filepath, "r") as f:
-    all_jobs = json.loads(json.load(f))
+upload_button = dcc.Upload(
+    dbc.Button(
+        children=['Upload JSON'],
+        id='upload_button',
+        n_clicks=0,
+        color="secondary",
+        className="mr-1"),
+        id = "upload_file"
+        )
+
+#######################
+### DEMO RUN ##########
+if upload_button.children.n_clicks == 0:
+    # if filtered is True:
+    #     json_filepath = "all_jobs_filtered.json"
+    # else:
+    #     json_filepath = "all_jobs.json"
+    json_filepath = "/home/marcus/Documents/VM_shared/marcus-lindberg/custom_tools/job_finder/2022-04-29_jobs.json"
+    #read data
+    with open(json_filepath, "r") as f:
+        #all_jobs = json.loads(json.load(f)) #Why was it like this?
+        all_jobs = json.load(f)
 
 jobs = [v for k,v in dict(all_jobs).items()][0]
+############# DATA TABLE ################
+df = pd.DataFrame(jobs).T[['title', 'score']].applymap(lambda x:x.strip() if type(x) == str else x)
+df_table = dash_table.DataTable(
+    data = df.sort_values('score').iloc[:10].to_dict('records'),
+    columns = [{"name":i, "id": i} for i in df.columns],
+    style_cell = {'text-align':'center'},
+    id = 'df')
+#########################################
 
 ## SORT JOBS
 
@@ -122,7 +151,10 @@ import base64
 wordcloud = html.Div([html.Img(id="image_wc")],
 style={'textAlign': 'center', 'opacity':'0.9', 'verticalAlign':'center'})
 #jpcollection = pickle.load(open("jobs_collection_latest.pickle", "rb")) #NOT FILTERED
-jpcollection = pickle.load(open("jobs_collection_latest.pickle", "rb")).generate_wordcloud().to_image()
+#jpcollection = pickle.load(open("jobs_collection_latest.pickle", "rb")).generate_wordcloud().to_image()
+jpcollection = JobPostingCollection()
+jpcollection.from_json(all_jobs)
+wordcloud_img = jpcollection.generate_wordcloud().to_image()
 
 # def plot_wordcloud(jbc_obj:JobPostingCollection):
 #     return jbc_obj.generate_wordcloud().to_image()
@@ -130,7 +162,7 @@ jpcollection = pickle.load(open("jobs_collection_latest.pickle", "rb")).generate
 @app.callback(dash.dependencies.Output('image_wc', 'src'), [dash.dependencies.Input('image_wc', 'id')])
 def make_image(b):
     img = BytesIO()
-    jpcollection.save(img, format='PNG')
+    wordcloud_img.save(img, format='PNG')
     return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
 ####################################
@@ -169,8 +201,11 @@ dd_sort_toggle = daq.BooleanSwitch(
     
 #job_names = [(jobs[str(job)]['title'], job) for job in range(1, len(jobs)) if jobs[str(job)]['language'] == "en"]
 #scores = [jobs[job]['score'] for job in range(1, len(jobs)) if jobs[str(job)]['language'] == "en"]
-sorted_dd = [{'label': f"{str(int(x[1])+1)}. "+x[0], 'value': x[1]} for x in job_names]
-unsorted_dd = [{'label': f"{str(int(x[1])+1)}. "+x[0], 'value': x[1]} for x in unsorted_job_names]
+
+# sorted_dd = [{'label': f"{str(int(x[1])+1)}. "+x[0], 'value': x[1]} for x in job_names]
+# unsorted_dd = [{'label': f"{str(int(x[1])+1)}. "+x[0], 'value': x[1]} for x in unsorted_job_names]
+sorted_dd = [{'label': f"{str(int(x[1]))}. "+x[0], 'value': x[1]} for x in job_names]
+unsorted_dd = [{'label': f"{str(int(x[1]))}. "+x[0], 'value': x[1]} for x in unsorted_job_names]
 
 ### FIX?
 dd_options = {"unsorted": unsorted_dd, "sorted":sorted_dd}
@@ -179,18 +214,21 @@ dd_options = {"unsorted": unsorted_dd, "sorted":sorted_dd}
 @app.callback(
     dash.dependencies.Output('job_dropdown', 'value'), #reset dropdown on toggle
     dash.dependencies.Output('job_dropdown', 'options'),
-    [dash.dependencies.Input('toggle_dropdown_sort', 'on')])
+    [dash.dependencies.Input('toggle_dropdown_sort', 'on'),
+    dash.dependencies.Input('swiss_jobs_logo', 'n_clicks')])
     #[dash.dependencies.State('job_dropdown', 'options')])
 #@cache.memoize(timeout=TIMEOUT)
-def update_dd(on):
+def update_dd(on, *args):
     #global dd_options #necessary?
+    #if dash.callback_context.triggered[0]:
     sort = "sorted" if on is True else "unsorted"
     return None, dd_options[sort]
 ########################################
 job_dropdown = html.Div([
     dcc.Dropdown(
         id='job_dropdown',
-        options=[{'label': f"{str(int(x[1])+1)}. "+x[0], 'value': x[1]} for x in job_names],
+        options=[{'label': f"{str(int(x[1]))}. "+x[0], 'value': x[1]} for x in job_names],
+        #options=[{'label': f"{str(int(x[1])+1)}. "+x[0], 'value': x[1]} for x in job_names], #why +1 to id val?
         value=None,
         multi=False, ##TODO: make multi-selectable
         optionHeight=60,
@@ -242,7 +280,7 @@ job_keywords = dcc.Markdown(id='job_keywords', style={
 
 dropdown_bar = dbc.Row(
     [
-        dbc.Col(job_dropdown, style={"width":"84%", "display":"inline-block", "padding":"0px", "clear":"both", "verticalAlign": "center", "margin-left":"10px", "margin-top":"25px", "transform-origin":"right", "position":"relative", "left":0}),
+        dbc.Col(job_dropdown, style={"width":"84%", "display":"inline-block", "padding":"0px", "clear":"both", "verticalAlign": "center", "margin-left":"10px", "margin-top":"15px", "transform-origin":"right", "position":"relative", "left":0}),
         dbc.Col(html.Div(dd_sort_toggle, style = {"color":"white", "padding":"0px"}), style={"width":"8%", "display":"inline-flex", "padding":"0px", "clear":"both","verticalAlign": "top","margin-top":"25px"})
     ],
     no_gutters = True,
@@ -257,6 +295,7 @@ total_jobs_badge = dbc.Button(
     ["Jobs found: ", dbc.Badge(f"{len(jobs)}", color="light", className="ml-1")],
     color="success", id="total_jobs_badge", disabled=False, style = {"verticalAlign":"top", "margin":0, "margin-left":"40px", "margin-top":"20px"}
 )
+
 ############################################
 ## HOVER TEXT - LINKEDIN
 popover_children = [
@@ -274,9 +313,10 @@ navbar = dbc.Navbar(
         dbc.Row(
             [
                 dbc.Col( #set H2 display to 'flex' to separate
-                    html.H2(children='SWISS JOBS', style = {"color":"white", "fontStyle":"italic","fontWeight":800, "width":"100%"}),
+                    html.H2(children='SWISS JOBS', id = "swiss_jobs_logo", style = {"color":"white", "fontStyle":"italic","fontWeight":800, "width":"100%"}),
                     style={"min_width":"13em", "display":"inline-block", "box-sizing":"border-box", "clear":"both",
                     "margin-left":"25px", "position":"relative", "right":"5px", "bottom":"6px", "max_width":"13em", "width":"13em"}
+                    
                     ),
                 dbc.Col(dbc.Collapse(dropdown_bar, navbar = True, style = {"width":"100%"}),
                 style={"max-width":"calc(85% - 14em)", "display":"inline-flex", "clear":"both","padding":"0px",
@@ -336,6 +376,7 @@ loading_spinner = html.Div([
 ## STICKY HEADER ROW - WITH JOB TITLE
 sticky_header_row = dbc.Row(
     [total_jobs_badge,
+    upload_button,
     loading_spinner,
     linkedin_logo_component,
     job_keywords
@@ -513,6 +554,7 @@ app.layout = html.Div(
         navbar,
         sticky_header_row,
         recency_badge_span,
+        df_table,
         current_tabs,
         next_button,
         dd_value_store
@@ -545,6 +587,34 @@ def set_tabs(value):
         return ['Word Cloud', 'Statistics', value]
     else:
         return ['Job description', 'Extra info', value]
+###############################
+## Reset dropdown on clicking home logo/button/etc.
+#DUPLICATE CALLBACK ON SAME OUTPUT
+# @app.callback(
+#     dash.dependencies.Output('job_dropdown', 'value'),
+#     [dash.dependencies.Input('swiss_jobs_logo', 'n_clicks')])
+# def callback(value):
+#     return ""
+##############################
+##### upload_button callback
+dummy_div = html.Div(id='output-data-upload')
+@app.callback(
+    dash.dependencies.Output('output-data-upload', 'children'),
+    dash.dependencies.Input('upload_button', 'contents')
+)
+def upload_json(file):
+    # global all_jobs
+    all_jobs = json.loads(file.decode('utf8'))
+    jobs = [v for k,v in dict(all_jobs).items()][0]
+    ############# DATA TABLE ################
+    df = pd.DataFrame(jobs).T[['title', 'score']].applymap(lambda x:x.strip() if type(x) == str else x)
+    df_table = dash_table.DataTable(
+        data = df.sort_values('score').iloc[:10].to_dict('records'),
+        columns = [{"name":i, "id": i} for i in df.columns],
+        style_cell = {'text-align':'center'},
+        id = 'df')
+
+
 ###############################
 
 @app.callback([

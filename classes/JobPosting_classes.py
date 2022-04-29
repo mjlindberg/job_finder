@@ -56,7 +56,7 @@ def get_listings(listing_urls):
 ############################################
 
 class JobPostingFramework:
-    chrome_driver_path = "chromedrivers/chromedriver_linux_arm64/chromedriver"
+    chrome_driver_path = "/snap/chromium/current/usr/lib/chromium-browser/chromedriver"#"chromedrivers/chromedriver_linux_arm64/chromedriver" ##FIX
     driver = None
 
     lang_detector = None #initialize this in a separate parent class
@@ -156,6 +156,8 @@ class JobPosting(JobPostingFramework):
         yield 'description', self.description
         yield 'score', self.score
 
+    #def __dict__(self):
+
     @staticmethod
     def get_description_linkedin(url, driver):
         ##TODO : move tqdm bar here?
@@ -171,8 +173,8 @@ class JobPosting(JobPostingFramework):
             #### Wait until it's clickable:
             # button = driver.find_element_by_xpath("/html/body/main/section[1]/section[3]/div/section/button[1]")
             # button.click()
-            button_xpath = "/html/body/main/section[1]/section[3]/div/section/button[1]"
-            default_wait_time = 60 # seconds
+            #button_xpath = "/html/body/main/section[1]/section[3]/div/section/button[1]"
+            default_wait_time = 10 #60 # seconds
             #####################
             # keep having timeout issues
             wait = WebDriverWait(driver, default_wait_time)
@@ -184,11 +186,17 @@ class JobPosting(JobPostingFramework):
                 if retries > 10:
                     time.sleep(1)
                 try:
-                    wait.until(EC.element_to_be_clickable((By.XPATH, button_xpath))).click()
+                    #wait.until(EC.element_to_be_clickable((By.XPATH, button_xpath))).click()
+                    wait.until(EC.visibility_of_element_located(
+                        (By.CLASS_NAME,
+                        "show-more-less-html__markup")
+                        ))
                     break
                 except TimeoutException:
                     #print("Timed out. Retrying...")
-                    driver.refresh()
+                    #driver.refresh()
+                    driver.back()
+                    driver.get(url)
                     retries += 1
 
             #########
@@ -267,7 +275,7 @@ class JobPostingCollection(JobPostingFramework):
 
     ##################TEMPORARY#############
     @staticmethod
-    def load_stopwords(stopwords_filepath = '/home/marcus/Documents/VM_shared/marcus-lindberg/custom_tools/stopwords-en.txt'):
+    def load_stopwords(stopwords_filepath = '/home/marcus/Documents/VM_shared/marcus-lindberg/custom_tools/job_finder/required/stopwords-en.txt'):
         with open(stopwords_filepath, newline='\n') as f:
 	        reader = csv.reader(f)
 	        stopwords = [word for row in reader for word in row]
@@ -300,6 +308,11 @@ class JobPostingCollection(JobPostingFramework):
     def to_json(self):
         return json.dumps(dict(self), indent = 4)
 
+    def save_json(self, path = "./"):#, filename = f"{self.query_date}_jobs"): #add keywords
+        outpath = path+str(self.query_date)+'_jobs.json'
+        with open(outpath, 'w') as f:
+            json.dump(dict(self), f)
+        print(f"Wrote {len(self.get_job_ids())} jobs to {outpath}.")
 
     def add_job(self, job: JobPosting): #use URL or hash instead of "id"
         self.job_postings[job.id] = job
@@ -360,7 +373,7 @@ class JobSearch(JobPostingFramework):
 
     retries = 0
 
-    default_chrome_driver_path = "chromedrivers/chromedriver_linux_arm64/chromedriver"
+    default_chrome_driver_path = "/snap/chromium/current/usr/lib/chromium-browser/chromedriver"#"chromedrivers/chromedriver_linux_arm64/chromedriver"
     get_clean_url = lambda x: re.match(pattern="(.*)\?refId(.*)", string=x).groups()[0]
 
     def __init__(self, chrome_driver_path = default_chrome_driver_path, **args):

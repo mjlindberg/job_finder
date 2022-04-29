@@ -129,61 +129,6 @@ def pull_job_descriptions(input_list):
     return job_summary
 
 
-def login_edinburgh_uni(url, headless=False):  # Automates EASE login
-    driver = initiate_driver(headless)
-    driver.get(url)
-    if driver.find_element_by_id("login") is not None:  # This tends to be the hangup
-        #driver.find_element_by_id("login").send_keys(input("EASE username: "))
-        #driver.find_element_by_id("password").send_keys(input("EASE password: "))
-        driver.find_element_by_id("login").send_keys("s1886445")
-        driver.find_element_by_id("password").send_keys("Fantasia123!")
-        driver.find_element_by_xpath("//input[@value=' Login now ']").click()
-        pass
-    elif driver.find_element_by_class_name("gr__apps_bio_ed_ac_uk") is not None:
-        pass
-    else:
-        driver.refresh()
-        pass
-    sleep(2)
-    return driver
-
-
-def login_edinburgh_uni2(url, headless=False, driver=False):  # Automates EASE login
-    if not driver:
-        driver = initiate_driver(headless)
-    driver.get(url)
-    retries = 0
-    while True:
-        try:
-            if retries > 0:
-                print("Reconnected. Continuing...")
-            driver.find_element_by_id("login")
-            # driver.find_element_by_id("login").send_keys(input("EASE username: "))
-            # driver.find_element_by_id("password").send_keys(input("EASE password: "))
-            driver.find_element_by_id("login").send_keys("s1886445")
-            driver.find_element_by_id("password").send_keys("Fantasia123!")
-            driver.find_element_by_xpath("//input[@value=' Login now ']").click()
-            break
-        except NoSuchElementException:
-            if "Project information" in (driver.find_element_by_tag_name('title').get_attribute('innerHTML')):
-                break
-            else:
-                if retries > 10:
-                    break
-                driver.refresh()
-                print("Page not found. Retrying... Attempt# "+str(retries+1) + " out of 10")
-                retries += 1
-                continue
-    html = driver.page_source
-    return html
-
-
-def login_edinburgh_with_grab(url, headless=False, driver=False):
-    html = login_edinburgh_uni2(url, headless, driver)
-    soup = bs4.BeautifulSoup(html, features="lxml")
-    #print(soup.prettify())
-    return soup
-
 
 # output = str(grab_url("https://google.com")).split(',')
 

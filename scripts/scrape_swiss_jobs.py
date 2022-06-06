@@ -2,7 +2,13 @@ import requests
 from bs4 import BeautifulSoup as bs
 import re
 
+################
+import sys
+sys.path.insert(1, 'required')
+sys.path.insert(1, 'classes') #FIX THIS
+
 from WebScraper import initiate_driver
+from JobPosting_classes import JobPosting, JobPostingFramework, JobPostingCollection
 #########
 ## Split this off into web scraper above
 from selenium.webdriver.common.by import By
@@ -21,13 +27,6 @@ from spacy.language import Language
 import nltk
 from nltk.tokenize import word_tokenize
 #####################
-import sys
-sys.path.insert(1, '/home/marcus/Documents/VM_shared/marcus-lindberg/custom_tools/job_finder/classes') #FIX THIS
-from JobPosting_classes import JobPosting, JobPostingFramework, JobPostingCollection
-#####################
-chromedriver_path_global = "/snap/chromium/current/usr/lib/chromium-browser/chromedriver"
-#"chromedrivers/chromedriver_linux_arm64/chromedriver"#chromedriver_binary.chromedriver_filename
-######################
 ###### not implemented
 # from nltk.probability import FreqDist
 # from nltk.corpus import stopwords
@@ -75,8 +74,7 @@ def get_urls_linkedin_selenium(keywords = "biology",
     query_url = f"https://ch.linkedin.com/jobs/search?keywords={keywords}&location={location_string}&geoId={geo_id}"
     print(query_url)
 
-    chrome_driver_path = chromedriver_path_global#"chromedrivers/chromedriver_linux_arm64/chromedriver"
-    driver = initiate_driver(headless=True,chrome_driver = chrome_driver_path,wait = wait)
+    driver = initiate_driver(headless=True, wait = wait)
     driver.get(query_url)
    #########
    ### recently added: scrolling # but how to add to requests...???
@@ -111,7 +109,7 @@ def run_job_scraper(previous_jobs = [None], n_jobs = None, **kwargs):
         print(f"({len(jobs_list)} new.)")
 
         ### Define the driver outside to avoid issues
-        chrome_driver_path = chromedriver_path_global#"chromedrivers/chromedriver_linux_arm64/chromedriver"
+        #chrome_driver_path = chromedriver_path_global#"chromedrivers/chromedriver_linux_arm64/chromedriver"
 
         #jobs_objs_list = get_listings(jobs_list)
         # #get_listings_selenium([(
@@ -147,9 +145,9 @@ def run_job_scraper(previous_jobs = [None], n_jobs = None, **kwargs):
 #nltk.FreqDist(([w for w in words if w.lower() not in stopwords and w.isalpha()])).tabulate(10)
 
 ################ RUN ################
-kill_existing_chromium_processes()
+#kill_existing_chromium_processes()
 
-# query_jobs = run_job_scraper()
+#query_jobs = run_job_scraper()
 
 # # import pickle
 # # with open('jobs.pkl', 'wb') as f:
@@ -166,3 +164,13 @@ kill_existing_chromium_processes()
 # jpc.from_json(jobs_json)
 
 # assert query_collection == jpc
+
+if __name__ == "__main__":
+    try:
+        kill_existing_chromium_processes()
+    except:
+        pass
+    query_jobs = run_job_scraper()
+    query_collection = JobPostingCollection()
+    query_collection.add_jobs(query_jobs)
+    query_collection.save_json()

@@ -49,11 +49,13 @@ def initiate_driver(headless=False, chrome_driver=None, wait = 0.5):
     if headless:
         options.add_argument('--headless')  # Chrome window does not open
         options.add_argument('headless')
+        options.add_argument('--no-sandbox')
         options.add_argument('window-size=1920x1080')
         options.add_argument('--no-proxy-server') #attempt at improving performance
         options.add_argument("--proxy-server='direct://'")
         options.add_argument("--proxy-bypass-list=*")
-        
+    
+    chrome_driver = chrome_driver if chrome_driver else "chromedriver"
     driver = webdriver.Chrome(chrome_driver, chrome_options=options)
     driver.implicitly_wait(wait)
 

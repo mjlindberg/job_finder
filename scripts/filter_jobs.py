@@ -45,7 +45,12 @@ from gensim.similarities import Similarity
 def init_defaults():
     global spacy_model_path, nlp, filter_stops, filter_stops_tokenized
     spacy_model_path = "en_core_web_md"
-    nlp = spacy.load(spacy_model_path)
+    try:
+        nlp = spacy.load(spacy_model_path)
+    except OSError:
+        from spacy.cli import download
+        download(spacy_model_path)
+        nlp = spacy.load(spacy_model_path)
     filter_stops = lambda text: " ".join(token.lemma_ for token in nlp(text) if not token.is_stop).replace('\n', '')
     #filter_stops_tokenized = lambda text: [token.lemma_ for token in nlp(text.replace('\n', ' ')) if not token.is_stop and token.is_alpha]
     filter_stops_tokenized = lambda text: [token.lemma_ for token in nlp(text) if not token.is_stop and token.is_alpha]

@@ -145,8 +145,6 @@ dependencies:
   - zstd=1.4.9
   - pip:
     - annoy==1.17.0
-    - en-core-web-lg==3.0.0
-    - en-core-web-md==3.0.0
     - gensim==4.0.1
     - iniconfig==1.1.1
     - langdetect==1.0.7

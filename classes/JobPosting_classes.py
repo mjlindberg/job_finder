@@ -89,7 +89,7 @@ class JobPostingFramework:
     def scroll_page(driver, scroll_wait = 5):
         ###### NEW - progress bar #######
         #25 jobs per scroll; 25 initial
-        total_jobs = int(driver.find_element_by_class_name("results-context-header__job-count").text)
+        total_jobs = int(driver.find_element(By.CLASS_NAME, "results-context-header__job-count").text)
         chunks = round(total_jobs/25)
         pbar = tqdm(total = chunks, unit_scale = True, initial = 1, leave = False)
         #########################
@@ -98,12 +98,12 @@ class JobPostingFramework:
         # Get scroll height
         last_height = driver.execute_script("return document.body.scrollHeight")
         while True:
-            if driver.find_elements_by_class_name("inline-notification__text")[0].text == "You've viewed all jobs for this search":
+            if driver.find_elements(By.CLASS_NAME, "inline-notification__text")[0].text == "You've viewed all jobs for this search":
                 print("Done.")
                 break
             #if driver.find_elements_by_xpath("//button[contains(@class,'infinite-scroller__show-more-button')]")[0].text == "See more jobs":
             try:
-                driver.find_elements_by_xpath("//button[contains(@class,'infinite-scroller__show-more-button')]")[0].click()
+                driver.find_elements(By.XPATH, "//button[contains(@class,'infinite-scroller__show-more-button')]")[0].click()
             except:
                 pass
         # Scroll down to bottom
@@ -115,7 +115,7 @@ class JobPostingFramework:
             new_height = driver.execute_script("return document.body.scrollHeight")
             if new_height == last_height:
                 try:
-                    driver.find_elements_by_xpath("//button[contains(@class,'infinite-scroller__show-more-button')]")[0].click()
+                    driver.find_elements(By.XPATH, "//button[contains(@class,'infinite-scroller__show-more-button')]")[0].click()
                 except:
                     break
             last_height = new_height
@@ -225,7 +225,7 @@ class JobPosting(JobPostingFramework):
                     retries += 1
 
             #########
-            description = driver.find_element_by_class_name("show-more-less-html__markup").text
+            description = driver.find_element(By.CLASS_NAME, "show-more-less-html__markup").text
         except Exception as e:
             print("FAIL:")
             print(type(e), e.args, e)
@@ -438,7 +438,7 @@ class JobSearch(JobPostingFramework):
         self.webdriver.get(query_url)
 
         JobSearch.scroll_page(self.webdriver, scroll_wait=5)
-        urls_list = self.webdriver.find_elements_by_class_name("result-card__full-card-link")
+        urls_list = self.webdriver.find_elements(By.CLASS_NAME, "result-card__full-card-link")
         
         urls_list_final = [(i.get_attribute('text'),JobSearch.get_clean_url(i.get_attribute('href'))) for i in tqdm(urls_list)]
         return urls_list_final#urls_list

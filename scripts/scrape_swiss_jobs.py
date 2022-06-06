@@ -80,7 +80,7 @@ def get_urls_linkedin_selenium(keywords = "biology",
    ### recently added: scrolling # but how to add to requests...???
     if not debug:
         JobPostingFramework.scroll_page(driver, scroll_wait=5)
-    urls_list = driver.find_elements_by_class_name("base-card__full-link")#("result-card__full-card-link")
+    urls_list = driver.find_elements(By.CLASS_NAME, "base-card__full-link")#("result-card__full-card-link")
 
     get_clean_url = lambda x: re.match(pattern="(.*)\?refId(.*)", string=x).groups()[0] #moved URL cleaning step here
 
